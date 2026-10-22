@@ -5,3 +5,5 @@ src/generated
 *.db
 *.db-journal
 *.log
+out.txt
+err.txt
