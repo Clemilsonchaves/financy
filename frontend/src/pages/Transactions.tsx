@@ -1,9 +1,22 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Q, Transaction, brl, fmtDate, gql } from "../lib/api";
+import {
+  ArrowDownCircle,
+  ArrowUpCircle,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Search,
+  SquarePen,
+  Trash2,
+} from "lucide-react";
+import { Q, Transaction, brl, gql } from "../lib/api";
+import { categoryStyle } from "../lib/categoryStyle";
 import { useCategories, useTransactions } from "../lib/queries";
 import { Confirm, Modal } from "../components/Modal";
 import { PageHeader } from "../components/Layout";
@@ -109,11 +122,113 @@ function TransactionDialog({ tx, onClose }: { tx?: Transaction; onClose: () => v
   );
 }
 
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  children,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-xs font-medium">{label}</span>
+      <span className="relative block">
+        <select
+          className="input h-10 appearance-none pr-9 text-xs"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        >
+          {children}
+        </select>
+        <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" />
+      </span>
+    </label>
+  );
+}
+
+function PageButton({
+  active,
+  disabled,
+  onClick,
+  label,
+  children,
+}: {
+  active?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-current={active ? "page" : undefined}
+      disabled={disabled}
+      onClick={onClick}
+      className={`flex h-7 min-w-7 items-center justify-center rounded-md border px-2 text-xs font-medium disabled:opacity-40 ${
+        active ? "border-brand-700 bg-brand-700 text-white" : "border-line bg-white text-ink hover:bg-gray-50"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 export function Transactions() {
   const qc = useQueryClient();
   const { data = [], isLoading } = useTransactions();
-  const [editing, setEditing] = useState<Transaction | "new" | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [editing, setEditing] = useState<Transaction | "new" | null>(
+    searchParams.get("new") ? "new" : null,
+  );
   const [deleting, setDeleting] = useState<Transaction | null>(null);
+
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [period, setPeriod] = useState("");
+  const [page, setPage] = useState(1);
+  const { data: categories = [] } = useCategories();
+
+  const closeDialog = () => {
+    setEditing(null);
+    if (searchParams.has("new")) setSearchParams({}, { replace: true });
+  };
+
+  const monthKey = (iso: string) => iso.slice(0, 7);
+  const periods = [...new Set(data.map((t) => monthKey(t.date)))].sort().reverse();
+  const periodLabel = (key: string) => {
+    const [y, m] = key.split("-");
+    const name = new Date(Date.UTC(+y, +m - 1, 1)).toLocaleDateString("pt-BR", {
+      month: "long",
+      timeZone: "UTC",
+    });
+    return `${name.charAt(0).toUpperCase()}${name.slice(1)} / ${y}`;
+  };
+
+  const filtered = data.filter(
+    (t) =>
+      t.description.toLowerCase().includes(search.trim().toLowerCase()) &&
+      (!typeFilter || t.type === typeFilter) &&
+      (!categoryFilter || t.category?.id === categoryFilter) &&
+      (!period || monthKey(t.date) === period),
+  );
+  const pageSize = 10;
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const current = Math.min(page, pageCount);
+  const start = (current - 1) * pageSize;
+  const rows = filtered.slice(start, start + pageSize);
+  const shortDate = (iso: string) =>
+    new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", timeZone: "UTC" });
+  const onFilter = (set: (v: string) => void) => (v: string) => {
+    set(v);
+    setPage(1);
+  };
 
   const del = useMutation({
     mutationFn: (id: string) => gql(Q.deleteTransaction, { id }),
@@ -127,42 +242,147 @@ export function Transactions() {
     <>
       <PageHeader
         title="Transações"
-        subtitle="Gerencie suas receitas e despesas"
+        subtitle="Gerencie todas as suas transações financeiras"
         action={
-          <button className="btn-primary" onClick={() => setEditing("new")}>
-            + Nova transação
+          <button className="auth-submit gap-1.5 !h-9 !px-3 !text-xs" onClick={() => setEditing("new")}>
+            <Plus size={14} /> Nova transação
           </button>
         }
       />
-      <div className="card divide-y divide-line">
+
+      <div className="card mb-6 grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
+        <label className="block">
+          <span className="mb-1.5 block text-xs font-medium">Buscar</span>
+          <span className="relative block">
+            <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              className="input h-10 pl-9 text-xs"
+              placeholder="Buscar por descrição"
+              value={search}
+              onChange={(e) => onFilter(setSearch)(e.target.value)}
+            />
+          </span>
+        </label>
+        <FilterSelect label="Tipo" value={typeFilter} onChange={onFilter(setTypeFilter)}>
+          <option value="">Todos</option>
+          <option value="INCOME">Entrada</option>
+          <option value="EXPENSE">Saída</option>
+        </FilterSelect>
+        <FilterSelect label="Categoria" value={categoryFilter} onChange={onFilter(setCategoryFilter)}>
+          <option value="">Todas</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </FilterSelect>
+        <FilterSelect label="Período" value={period} onChange={onFilter(setPeriod)}>
+          <option value="">Todos</option>
+          {periods.map((p) => (
+            <option key={p} value={p}>
+              {periodLabel(p)}
+            </option>
+          ))}
+        </FilterSelect>
+      </div>
+
+      <div className="card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-sm">
+            <thead>
+              <tr className="border-b border-line text-[11px] font-medium uppercase tracking-wider text-muted">
+                <th className="px-5 py-4 text-left font-medium">Descrição</th>
+                <th className="px-3 py-4 text-center font-medium">Data</th>
+                <th className="px-3 py-4 text-center font-medium">Categoria</th>
+                <th className="px-3 py-4 text-center font-medium">Tipo</th>
+                <th className="px-3 py-4 text-right font-medium">Valor</th>
+                <th className="px-5 py-4 text-right font-medium">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {rows.map((t) => {
+                const { badge, tile, Icon } = categoryStyle(t.category?.name);
+                const income = t.type === "INCOME";
+                const Arrow = income ? ArrowUpCircle : ArrowDownCircle;
+                return (
+                  <tr key={t.id}>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-3">
+                        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tile}`}>
+                          <Icon size={14} />
+                        </span>
+                        <span className="font-medium">{t.description}</span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-3 text-center text-xs text-muted">{shortDate(t.date)}</td>
+                    <td className="px-3 py-3 text-center">
+                      <span className={`rounded-full px-3 py-1 text-xs font-medium ${badge}`}>
+                        {t.category?.name ?? "Sem categoria"}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3">
+                      <span
+                        className={`flex items-center justify-center gap-1.5 text-xs font-medium ${income ? "text-brand-700" : "text-red-600"}`}
+                      >
+                        <Arrow size={14} /> {income ? "Entrada" : "Saída"}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-3 text-right text-xs font-semibold">
+                      {income ? "+" : "-"} {brl(t.amount)}
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          aria-label="Excluir"
+                          title="Excluir"
+                          onClick={() => setDeleting(t)}
+                          className="flex h-7 w-7 items-center justify-center rounded-md border border-line text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                        <button
+                          aria-label="Editar"
+                          title="Editar"
+                          onClick={() => setEditing(t)}
+                          className="flex h-7 w-7 items-center justify-center rounded-md border border-line text-gray-600 hover:bg-gray-50"
+                        >
+                          <SquarePen size={13} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
         {isLoading && <p className="p-6 text-sm text-muted">Carregando...</p>}
-        {!isLoading && data.length === 0 && (
-          <p className="p-6 text-sm text-muted">Nenhuma transação cadastrada.</p>
+        {!isLoading && rows.length === 0 && (
+          <p className="p-6 text-sm text-muted">
+            {data.length === 0 ? "Nenhuma transação cadastrada." : "Nenhuma transação encontrada."}
+          </p>
         )}
-        {data.map((t) => (
-          <div key={t.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
-            <div>
-              <p className="font-medium">{t.description}</p>
-              <p className="text-sm text-muted">
-                {fmtDate(t.date)} · {t.category?.name ?? "Sem categoria"}
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className={`font-semibold ${t.type === "INCOME" ? "text-brand-600" : "text-red-600"}`}>
-                {t.type === "INCOME" ? "+" : "-"} {brl(t.amount)}
-              </span>
-              <button className="btn-outline" onClick={() => setEditing(t)}>
-                Editar
-              </button>
-              <button className="btn-outline text-red-600" onClick={() => setDeleting(t)}>
-                Excluir
-              </button>
-            </div>
+        <div className="flex items-center justify-between border-t border-line px-5 py-4 text-xs text-muted">
+          <span>
+            {filtered.length === 0 ? 0 : start + 1} a {start + rows.length} | {filtered.length} resultados
+          </span>
+          <div className="flex items-center gap-1.5">
+            <PageButton disabled={current === 1} onClick={() => setPage(current - 1)} label="Anterior">
+              <ChevronLeft size={14} />
+            </PageButton>
+            {Array.from({ length: pageCount }, (_, i) => i + 1).map((n) => (
+              <PageButton key={n} active={n === current} onClick={() => setPage(n)} label={`Página ${n}`}>
+                {n}
+              </PageButton>
+            ))}
+            <PageButton disabled={current === pageCount} onClick={() => setPage(current + 1)} label="Próxima">
+              <ChevronRight size={14} />
+            </PageButton>
           </div>
-        ))}
+        </div>
       </div>
       {editing && (
-        <TransactionDialog tx={editing === "new" ? undefined : editing} onClose={() => setEditing(null)} />
+        <TransactionDialog tx={editing === "new" ? undefined : editing} onClose={closeDialog} />
       )}
       {deleting && (
         <Confirm

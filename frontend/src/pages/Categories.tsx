@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Category, Q, gql } from "../lib/api";
+import { categoryStyle } from "../lib/categoryStyle";
 import { useCategories } from "../lib/queries";
 import { Confirm, Modal } from "../components/Modal";
 import { PageHeader } from "../components/Layout";
@@ -17,10 +18,12 @@ type Form = z.infer<typeof schema>;
 function CategoryDialog({ category, onClose }: { category?: Category; onClose: () => void }) {
   const qc = useQueryClient();
   const [error, setError] = useState("");
-  const { register, handleSubmit, formState } = useForm<Form>({
+  const { register, handleSubmit, formState, control } = useForm<Form>({
     resolver: zodResolver(schema),
     defaultValues: { name: category?.name ?? "", description: category?.description ?? "" },
   });
+  const typedName = useWatch({ control, name: "name" });
+  const { Icon, tile } = categoryStyle(typedName);
 
   const save = useMutation({
     mutationFn: (v: Form) =>
@@ -40,7 +43,12 @@ function CategoryDialog({ category, onClose }: { category?: Category; onClose: (
       <form onSubmit={handleSubmit((v) => save.mutate(v))} className="space-y-4">
         <div>
           <label className="label">Nome</label>
-          <input className="input" placeholder="Ex.: Alimentação" {...register("name")} />
+          <div className="flex items-center gap-3">
+            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${tile}`}>
+              <Icon size={18} />
+            </span>
+            <input className="input" placeholder="Ex.: Alimentação" {...register("name")} />
+          </div>
           <p className="field-error">{formState.errors.name?.message}</p>
         </div>
         <div>
@@ -92,11 +100,18 @@ export function Categories() {
         {!isLoading && data.length === 0 && (
           <p className="p-6 text-sm text-muted">Nenhuma categoria cadastrada.</p>
         )}
-        {data.map((c) => (
+        {data.map((c) => {
+          const { Icon, tile } = categoryStyle(c.name);
+          return (
           <div key={c.id} className="flex items-center justify-between gap-4 p-4">
-            <div>
-              <p className="font-medium">{c.name}</p>
-              {c.description && <p className="text-sm text-muted">{c.description}</p>}
+            <div className="flex items-center gap-3">
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${tile}`}>
+                <Icon size={16} />
+              </span>
+              <div>
+                <p className="font-medium">{c.name}</p>
+                {c.description && <p className="text-sm text-muted">{c.description}</p>}
+              </div>
             </div>
             <div className="flex gap-2">
               <button className="btn-outline" onClick={() => setEditing(c)}>
@@ -107,7 +122,8 @@ export function Categories() {
               </button>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
       {editing && (
         <CategoryDialog

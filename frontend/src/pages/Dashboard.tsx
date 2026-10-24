@@ -1,94 +1,117 @@
 import { Link } from "react-router-dom";
+import { ArrowDownCircle, ArrowUpCircle, ChevronRight, Plus, Wallet } from "lucide-react";
 import { brl, fmtDate } from "../lib/api";
-import { useAuth } from "../lib/auth";
-import { useTransactions } from "../lib/queries";
-import { PageHeader } from "../components/Layout";
+import { categoryStyle } from "../lib/categoryStyle";
+import { useCategories, useTransactions } from "../lib/queries";
 
 export function Dashboard() {
-  const { user } = useAuth();
   const { data = [], isLoading } = useTransactions();
+  const { data: categories = [] } = useCategories();
 
-  const income = data.filter((t) => t.type === "INCOME").reduce((s, t) => s + t.amount, 0);
-  const expense = data.filter((t) => t.type === "EXPENSE").reduce((s, t) => s + t.amount, 0);
+  const now = new Date();
+  const inMonth = (iso: string) => {
+    const d = new Date(iso);
+    return d.getUTCFullYear() === now.getFullYear() && d.getUTCMonth() === now.getMonth();
+  };
+  const sum = (type: "INCOME" | "EXPENSE", onlyMonth: boolean) =>
+    data
+      .filter((t) => t.type === type && (!onlyMonth || inMonth(t.date)))
+      .reduce((s, t) => s + t.amount, 0);
 
-  const byCategory = new Map<string, number>();
-  data
-    .filter((t) => t.type === "EXPENSE")
-    .forEach((t) => {
-      const k = t.category?.name ?? "Sem categoria";
-      byCategory.set(k, (byCategory.get(k) ?? 0) + t.amount);
-    });
-  const top = [...byCategory.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const balance = sum("INCOME", false) - sum("EXPENSE", false);
 
   const cards = [
-    { label: "Saldo total", value: income - expense, color: "text-ink" },
-    { label: "Receitas", value: income, color: "text-brand-600" },
-    { label: "Despesas", value: expense, color: "text-red-600" },
+    { label: "Saldo total", value: balance, Icon: Wallet, color: "text-purple-600" },
+    { label: "Receitas do mês", value: sum("INCOME", true), Icon: ArrowUpCircle, color: "text-brand-700" },
+    { label: "Despesas do mês", value: sum("EXPENSE", true), Icon: ArrowDownCircle, color: "text-red-600" },
   ];
 
+  const categoryStats = categories
+    .map((c) => {
+      const txs = data.filter((t) => t.category?.id === c.id);
+      return { id: c.id, name: c.name, count: txs.length, total: txs.reduce((s, t) => s + t.amount, 0) };
+    })
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 5);
+
   return (
-    <>
-      <PageHeader title={`Olá, ${user?.name.split(" ")[0]}`} subtitle="Resumo das suas finanças" />
-      <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        {cards.map((c) => (
-          <div key={c.label} className="card p-5">
-            <p className="text-sm text-muted">{c.label}</p>
-            <p className={`mt-1 text-2xl font-bold ${c.color}`}>{brl(c.value)}</p>
-          </div>
-        ))}
-      </div>
-      <div className="grid gap-6 lg:grid-cols-3">
-        <section className="card lg:col-span-2">
-          <div className="flex items-center justify-between border-b border-line p-4">
-            <h2 className="font-semibold">Últimas transações</h2>
-            <Link to="/transactions" className="text-sm font-medium text-brand-700">
-              Ver todas
-            </Link>
-          </div>
-          {isLoading && <p className="p-4 text-sm text-muted">Carregando...</p>}
-          {!isLoading && data.length === 0 && <p className="p-4 text-sm text-muted">Sem transações.</p>}
-          <div className="divide-y divide-line">
-            {data.slice(0, 6).map((t) => (
-              <div key={t.id} className="flex items-center justify-between p-4">
-                <div>
-                  <p className="font-medium">{t.description}</p>
-                  <p className="text-sm text-muted">
-                    {fmtDate(t.date)} · {t.category?.name ?? "Sem categoria"}
-                  </p>
+    <div className="grid gap-6 lg:grid-cols-3">
+      {cards.map(({ label, value, Icon, color }) => (
+        <div key={label} className="card p-5">
+          <p className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-muted">
+            <Icon size={16} className={color} />
+            {label}
+          </p>
+          <p className="mt-3 text-[1.7rem] font-bold">{brl(value)}</p>
+        </div>
+      ))}
+
+      <section className="card lg:col-span-2">
+        <div className="flex items-center justify-between border-b border-line px-5 py-4">
+          <h2 className="text-[11px] font-medium uppercase tracking-wider text-muted">Transações recentes</h2>
+          <Link to="/transactions" className="flex items-center gap-1 text-sm font-medium text-brand-700">
+            Ver todas <ChevronRight size={16} />
+          </Link>
+        </div>
+        {isLoading && <p className="p-5 text-sm text-muted">Carregando...</p>}
+        {!isLoading && data.length === 0 && <p className="p-5 text-sm text-muted">Sem transações.</p>}
+        <div className="divide-y divide-line">
+          {data.slice(0, 5).map((t) => {
+            const { badge, tile, Icon } = categoryStyle(t.category?.name);
+            const income = t.type === "INCOME";
+            const Arrow = income ? ArrowUpCircle : ArrowDownCircle;
+            return (
+              <div key={t.id} className="grid grid-cols-[1fr_auto_9.5rem] items-center gap-4 px-5 py-4">
+                <div className="flex items-center gap-4">
+                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${tile}`}>
+                    <Icon size={16} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{t.description}</p>
+                    <p className="text-xs text-muted">{fmtDate(t.date)}</p>
+                  </div>
                 </div>
-                <span className={`font-semibold ${t.type === "INCOME" ? "text-brand-600" : "text-red-600"}`}>
-                  {t.type === "INCOME" ? "+" : "-"} {brl(t.amount)}
+                <span className={`rounded-full px-3 py-1 text-xs font-medium ${badge}`}>
+                  {t.category?.name ?? (income ? "Receita" : "Despesa")}
+                </span>
+                <span className="flex items-center justify-end gap-2 text-sm font-semibold">
+                  {income ? "+" : "-"} {brl(t.amount)}
+                  <Arrow size={16} className={income ? "text-brand-700" : "text-red-600"} />
                 </span>
               </div>
-            ))}
-          </div>
-        </section>
-        <section className="card">
-          <div className="flex items-center justify-between border-b border-line p-4">
-            <h2 className="font-semibold">Despesas por categoria</h2>
-            <Link to="/categories" className="text-sm font-medium text-brand-700">
-              Gerenciar
-            </Link>
-          </div>
-          <div className="space-y-3 p-4">
-            {top.length === 0 && <p className="text-sm text-muted">Sem despesas.</p>}
-            {top.map(([name, value]) => (
-              <div key={name}>
-                <div className="mb-1 flex justify-between text-sm">
-                  <span>{name}</span>
-                  <span className="text-muted">{brl(value)}</span>
-                </div>
-                <div className="h-2 rounded-full bg-gray-100">
-                  <div
-                    className="h-2 rounded-full bg-brand-500"
-                    style={{ width: `${(value / expense) * 100}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
-    </>
+            );
+          })}
+        </div>
+        <Link
+          to="/transactions?new=1"
+          className="flex items-center justify-center gap-2 border-t border-line py-4 text-sm font-medium text-brand-700"
+        >
+          <Plus size={16} /> Nova transação
+        </Link>
+      </section>
+
+      <section className="card self-start">
+        <div className="flex items-center justify-between border-b border-line px-5 py-4">
+          <h2 className="text-[11px] font-medium uppercase tracking-wider text-muted">Categorias</h2>
+          <Link to="/categories" className="flex items-center gap-1 text-sm font-medium text-brand-700">
+            Gerenciar <ChevronRight size={16} />
+          </Link>
+        </div>
+        <div className="space-y-3 p-5">
+          {categoryStats.length === 0 && <p className="text-sm text-muted">Sem categorias.</p>}
+          {categoryStats.map((c) => (
+            <div key={c.id} className="flex items-center justify-between gap-2 text-sm">
+              <span className={`rounded-full px-3 py-1 text-xs font-medium ${categoryStyle(c.name).badge}`}>
+                {c.name}
+              </span>
+              <span className="ml-auto text-muted">
+                {c.count} {c.count === 1 ? "item" : "itens"}
+              </span>
+              <span className="w-24 text-right font-semibold">{brl(c.total)}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
   );
 }

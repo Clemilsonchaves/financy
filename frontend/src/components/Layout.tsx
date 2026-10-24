@@ -17,18 +17,18 @@ export function Layout() {
     .toUpperCase();
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-[#f8f9fb]">
       <header className="border-b border-line bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
-          <span className="text-xl font-bold text-brand-700">Financy</span>
-          <nav className="flex gap-1 text-sm">
+        <div className="mx-auto grid h-[60px] max-w-[1080px] grid-cols-[1fr_auto_1fr] items-center gap-4 px-4">
+          <img src="/logo.png" alt="Financy" className="h-6 w-auto justify-self-start" />
+          <nav className="flex gap-5 text-sm">
             {links.map((l) => (
               <NavLink
                 key={l.to}
                 to={l.to}
                 end={l.end}
                 className={({ isActive }) =>
-                  `rounded-lg px-3 py-1.5 ${isActive ? "bg-brand-50 font-medium text-brand-700" : "text-muted hover:text-ink"}`
+                  isActive ? "font-medium text-brand-700" : "text-muted hover:text-ink"
                 }
               >
                 {l.label}
@@ -37,14 +37,14 @@ export function Layout() {
           </nav>
           <NavLink
             to="/profile"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700"
+            className="flex h-8 w-8 items-center justify-center justify-self-end rounded-full bg-gray-300 text-xs font-semibold text-ink"
             title="Perfil"
           >
             {initials}
           </NavLink>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-6">
+      <main className="mx-auto max-w-[1080px] px-4 py-10">
         <Outlet />
       </main>
     </div>
