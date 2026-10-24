@@ -53,7 +53,7 @@ export const resolvers = {
       const email = a.email.trim().toLowerCase();
       if (!a.name.trim()) fail("Nome obrigatório");
       if (!/^\S+@\S+\.\S+$/.test(email)) fail("E-mail inválido");
-      if (a.password.length < 6) fail("A senha deve ter ao menos 6 caracteres");
+      if (a.password.length < 8) fail("A senha deve ter ao menos 8 caracteres");
       if (await prisma.user.findUnique({ where: { email } })) fail("E-mail já cadastrado");
       const user = await prisma.user.create({
         data: { name: a.name.trim(), email, password: await bcrypt.hash(a.password, 10) },
