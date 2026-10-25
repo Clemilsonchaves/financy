@@ -1,9 +1,6 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ArrowDownCircle,
   ArrowUpCircle,
@@ -18,109 +15,9 @@ import {
 import { Q, Transaction, brl, gql } from "../lib/api";
 import { categoryStyle } from "../lib/categoryStyle";
 import { useCategories, useTransactions } from "../lib/queries";
-import { Confirm, Modal } from "../components/Modal";
+import { Confirm } from "../components/Modal";
+import { TransactionDialog } from "../components/TransactionDialog";
 import { PageHeader } from "../components/Layout";
-
-const schema = z.object({
-  description: z.string().trim().min(1, "Informe a descrição"),
-  amount: z.coerce.number().positive("Informe um valor maior que zero"),
-  type: z.enum(["INCOME", "EXPENSE"]),
-  date: z.string().min(1, "Informe a data"),
-  categoryId: z.string().optional(),
-});
-type Form = z.input<typeof schema>;
-type Parsed = z.output<typeof schema>;
-
-function TransactionDialog({ tx, onClose }: { tx?: Transaction; onClose: () => void }) {
-  const qc = useQueryClient();
-  const { data: categories = [] } = useCategories();
-  const [error, setError] = useState("");
-  const { register, handleSubmit, watch, setValue, formState } = useForm<Form, unknown, Parsed>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      description: tx?.description ?? "",
-      amount: tx?.amount ?? ("" as unknown as number),
-      type: tx?.type ?? "EXPENSE",
-      date: (tx?.date ?? new Date().toISOString()).slice(0, 10),
-      categoryId: tx?.category?.id ?? "",
-    },
-  });
-  const type = watch("type");
-
-  const save = useMutation({
-    mutationFn: (v: Parsed) => {
-      const vars = { ...v, categoryId: v.categoryId || null, date: new Date(v.date).toISOString() };
-      return tx ? gql(Q.updateTransaction, { id: tx.id, ...vars }) : gql(Q.createTransaction, vars);
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["transactions"] });
-      onClose();
-    },
-    onError: (e) => setError((e as Error).message),
-  });
-
-  return (
-    <Modal title={tx ? "Editar transação" : "Nova transação"} onClose={onClose}>
-      <form onSubmit={handleSubmit((v) => save.mutate(v))} className="space-y-4">
-        <div className="grid grid-cols-2 gap-2 rounded-lg border border-line p-1 text-sm">
-          {(["EXPENSE", "INCOME"] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setValue("type", t)}
-              className={`rounded-md py-2 font-medium ${
-                type === t
-                  ? t === "INCOME"
-                    ? "bg-brand-600 text-white"
-                    : "bg-red-600 text-white"
-                  : "text-muted"
-              }`}
-            >
-              {t === "INCOME" ? "Receita" : "Despesa"}
-            </button>
-          ))}
-        </div>
-        <div>
-          <label className="label">Descrição</label>
-          <input className="input" placeholder="Ex.: Almoço" {...register("description")} />
-          <p className="field-error">{formState.errors.description?.message}</p>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="label">Valor (R$)</label>
-            <input className="input" type="number" step="0.01" placeholder="0,00" {...register("amount")} />
-            <p className="field-error">{formState.errors.amount?.message}</p>
-          </div>
-          <div>
-            <label className="label">Data</label>
-            <input className="input" type="date" {...register("date")} />
-            <p className="field-error">{formState.errors.date?.message}</p>
-          </div>
-        </div>
-        <div>
-          <label className="label">Categoria</label>
-          <select className="input" {...register("categoryId")}>
-            <option value="">Sem categoria</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        {error && <p className="field-error">{error}</p>}
-        <div className="flex justify-end gap-2">
-          <button type="button" className="btn-outline" onClick={onClose}>
-            Cancelar
-          </button>
-          <button className="btn-primary" disabled={save.isPending}>
-            Salvar
-          </button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
 
 function FilterSelect({
   label,
@@ -301,7 +198,7 @@ export function Transactions() {
             </thead>
             <tbody className="divide-y divide-line">
               {rows.map((t) => {
-                const { badge, tile, Icon } = categoryStyle(t.category?.name);
+                const { badge, tile, Icon } = categoryStyle(t.category);
                 const income = t.type === "INCOME";
                 const Arrow = income ? ArrowUpCircle : ArrowDownCircle;
                 return (

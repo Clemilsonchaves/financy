@@ -49,6 +49,12 @@ export const resolvers = {
       }),
   },
   Mutation: {
+    updateProfile: async (_: unknown, a: { name: string }, ctx: Context) => {
+      const userId = requireAuth(ctx);
+      const name = a.name.trim();
+      if (name.length < 2) fail("Informe seu nome");
+      return prisma.user.update({ where: { id: userId }, data: { name } });
+    },
     register: async (_: unknown, a: { name: string; email: string; password: string }) => {
       const email = a.email.trim().toLowerCase();
       if (!a.name.trim()) fail("Nome obrigatório");
@@ -68,16 +74,22 @@ export const resolvers = {
       return { token: signToken(user.id), user };
     },
 
-    createCategory: async (_: unknown, a: { name: string; description?: string }, ctx: Context) => {
+    createCategory: async (
+      _: unknown,
+      a: { name: string; description?: string; icon?: string; color?: string },
+      ctx: Context,
+    ) => {
       const userId = requireAuth(ctx);
       const name = a.name.trim();
       if (!name) fail("Nome obrigatório");
       if (await prisma.category.findFirst({ where: { userId, name } })) fail("Categoria já existe");
-      return prisma.category.create({ data: { name, description: a.description, userId } });
+      return prisma.category.create({
+        data: { name, description: a.description, icon: a.icon, color: a.color, userId },
+      });
     },
     updateCategory: async (
       _: unknown,
-      a: { id: string; name?: string; description?: string },
+      a: { id: string; name?: string; description?: string; icon?: string; color?: string },
       ctx: Context,
     ) => {
       const userId = requireAuth(ctx);
@@ -89,7 +101,7 @@ export const resolvers = {
       }
       return prisma.category.update({
         where: { id: a.id },
-        data: { name, description: a.description },
+        data: { name, description: a.description, icon: a.icon, color: a.color },
       });
     },
     deleteCategory: async (_: unknown, a: { id: string }, ctx: Context) => {

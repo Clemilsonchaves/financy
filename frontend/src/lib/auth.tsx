@@ -6,6 +6,7 @@ type AuthCtx = {
   user: User | null;
   loading: boolean;
   signIn: (token: string, user: User) => void;
+  updateUser: (user: User) => void;
   signOut: () => void;
 };
 
@@ -41,5 +42,5 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(u);
   };
 
-  return <Ctx.Provider value={{ user, loading, signIn, signOut }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ user, loading, signIn, updateUser: setUser, signOut }}>{children}</Ctx.Provider>;
 }

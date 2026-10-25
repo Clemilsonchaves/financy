@@ -1,26 +1,36 @@
 import type { ReactNode } from "react";
+import { X } from "lucide-react";
 
 export function Modal({
   title,
+  subtitle,
   onClose,
   children,
 }: {
   title: string;
+  subtitle?: string;
   onClose: () => void;
   children: ReactNode;
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
     >
-      <div className="card w-full max-w-md p-6 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{title}</h2>
-          <button onClick={onClose} aria-label="Fechar" className="text-muted hover:text-ink">
-            ✕
+      <div className="w-full max-w-[26rem] rounded-2xl bg-white p-6 shadow-xl">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="font-semibold">{title}</h2>
+            {subtitle && <p className="text-sm text-muted">{subtitle}</p>}
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Fechar"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-line text-ink hover:bg-gray-50"
+          >
+            <X size={15} />
           </button>
         </div>
         {children}

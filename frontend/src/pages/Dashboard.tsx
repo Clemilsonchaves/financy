@@ -1,12 +1,15 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowDownCircle, ArrowUpCircle, ChevronRight, Plus, Wallet } from "lucide-react";
 import { brl, fmtDate } from "../lib/api";
 import { categoryStyle } from "../lib/categoryStyle";
 import { useCategories, useTransactions } from "../lib/queries";
+import { TransactionDialog } from "../components/TransactionDialog";
 
 export function Dashboard() {
   const { data = [], isLoading } = useTransactions();
   const { data: categories = [] } = useCategories();
+  const [creating, setCreating] = useState(false);
 
   const now = new Date();
   const inMonth = (iso: string) => {
@@ -29,7 +32,7 @@ export function Dashboard() {
   const categoryStats = categories
     .map((c) => {
       const txs = data.filter((t) => t.category?.id === c.id);
-      return { id: c.id, name: c.name, count: txs.length, total: txs.reduce((s, t) => s + t.amount, 0) };
+      return { category: c, id: c.id, name: c.name, count: txs.length, total: txs.reduce((s, t) => s + t.amount, 0) };
     })
     .sort((a, b) => b.total - a.total)
     .slice(0, 5);
@@ -57,7 +60,7 @@ export function Dashboard() {
         {!isLoading && data.length === 0 && <p className="p-5 text-sm text-muted">Sem transações.</p>}
         <div className="divide-y divide-line">
           {data.slice(0, 5).map((t) => {
-            const { badge, tile, Icon } = categoryStyle(t.category?.name);
+            const { badge, tile, Icon } = categoryStyle(t.category);
             const income = t.type === "INCOME";
             const Arrow = income ? ArrowUpCircle : ArrowDownCircle;
             return (
@@ -82,12 +85,13 @@ export function Dashboard() {
             );
           })}
         </div>
-        <Link
-          to="/transactions?new=1"
-          className="flex items-center justify-center gap-2 border-t border-line py-4 text-sm font-medium text-brand-700"
+        <button
+          type="button"
+          onClick={() => setCreating(true)}
+          className="flex w-full items-center justify-center gap-2 border-t border-line py-4 text-sm font-medium text-brand-700"
         >
           <Plus size={16} /> Nova transação
-        </Link>
+        </button>
       </section>
 
       <section className="card self-start">
@@ -101,7 +105,7 @@ export function Dashboard() {
           {categoryStats.length === 0 && <p className="text-sm text-muted">Sem categorias.</p>}
           {categoryStats.map((c) => (
             <div key={c.id} className="flex items-center justify-between gap-2 text-sm">
-              <span className={`rounded-full px-3 py-1 text-xs font-medium ${categoryStyle(c.name).badge}`}>
+              <span className={`rounded-full px-3 py-1 text-xs font-medium ${categoryStyle(c.category).badge}`}>
                 {c.name}
               </span>
               <span className="ml-auto text-muted">
@@ -112,6 +116,7 @@ export function Dashboard() {
           ))}
         </div>
       </section>
+      {creating && <TransactionDialog onClose={() => setCreating(false)} />}
     </div>
   );
 }

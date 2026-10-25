@@ -21,6 +21,8 @@ export const typeDefs = /* GraphQL */ `
     id: ID!
     name: String!
     description: String
+    icon: String
+    color: String
   }
 
   type Transaction {
@@ -41,9 +43,10 @@ export const typeDefs = /* GraphQL */ `
   type Mutation {
     register(name: String!, email: String!, password: String!): AuthPayload!
     login(email: String!, password: String!): AuthPayload!
+    updateProfile(name: String!): User!
 
-    createCategory(name: String!, description: String): Category!
-    updateCategory(id: ID!, name: String, description: String): Category!
+    createCategory(name: String!, description: String, icon: String, color: String): Category!
+    updateCategory(id: ID!, name: String, description: String, icon: String, color: String): Category!
     deleteCategory(id: ID!): Boolean!
 
     createTransaction(

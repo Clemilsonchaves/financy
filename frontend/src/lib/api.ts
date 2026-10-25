@@ -31,7 +31,13 @@ export async function gql<T>(
 }
 
 export type User = { id: string; name: string; email: string };
-export type Category = { id: string; name: string; description: string | null };
+export type Category = {
+  id: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  color: string | null;
+};
 export type TxType = "INCOME" | "EXPENSE";
 export type Transaction = {
   id: string;
@@ -42,15 +48,17 @@ export type Transaction = {
   category: Category | null;
 };
 
-const TX_FIELDS = `id description amount type date category { id name description }`;
+const CATEGORY_FIELDS = `id name description icon color`;
+const TX_FIELDS = `id description amount type date category { ${CATEGORY_FIELDS} }`;
 
 export const Q = {
   me: `query { me { id name email } }`,
+  updateProfile: `mutation($name:String!){ updateProfile(name:$name){ id name email } }`,
   login: `mutation($email:String!,$password:String!){ login(email:$email,password:$password){ token user{ id name email } } }`,
   register: `mutation($name:String!,$email:String!,$password:String!){ register(name:$name,email:$email,password:$password){ token user{ id name email } } }`,
-  categories: `query { categories { id name description } }`,
-  createCategory: `mutation($name:String!,$description:String){ createCategory(name:$name,description:$description){ id } }`,
-  updateCategory: `mutation($id:ID!,$name:String,$description:String){ updateCategory(id:$id,name:$name,description:$description){ id } }`,
+  categories: `query { categories { ${CATEGORY_FIELDS} } }`,
+  createCategory: `mutation($name:String!,$description:String,$icon:String,$color:String){ createCategory(name:$name,description:$description,icon:$icon,color:$color){ id } }`,
+  updateCategory: `mutation($id:ID!,$name:String,$description:String,$icon:String,$color:String){ updateCategory(id:$id,name:$name,description:$description,icon:$icon,color:$color){ id } }`,
   deleteCategory: `mutation($id:ID!){ deleteCategory(id:$id) }`,
   transactions: `query { transactions { ${TX_FIELDS} } }`,
   createTransaction: `mutation($description:String!,$amount:Float!,$type:TransactionType!,$date:DateTime,$categoryId:ID){ createTransaction(description:$description,amount:$amount,type:$type,date:$date,categoryId:$categoryId){ id } }`,

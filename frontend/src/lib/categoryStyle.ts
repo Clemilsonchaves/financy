@@ -2,11 +2,13 @@ import {
   Baby,
   Banknote,
   Bike,
+  BookOpen,
   Briefcase,
   Bus,
   Car,
   Coffee,
   Dumbbell,
+  FileText,
   Fuel,
   Gamepad2,
   Gift,
@@ -26,6 +28,7 @@ import {
   ShoppingCart,
   Smartphone,
   Tag,
+  Ticket,
   Tv,
   Utensils,
   Wallet,
@@ -37,14 +40,39 @@ import {
 
 type Palette = { badge: string; tile: string };
 
-const palettes: Palette[] = [
-  { badge: "bg-blue-100 text-blue-700", tile: "bg-blue-100 text-blue-600" },
-  { badge: "bg-purple-100 text-purple-700", tile: "bg-purple-100 text-purple-600" },
-  { badge: "bg-orange-100 text-orange-700", tile: "bg-orange-100 text-orange-600" },
-  { badge: "bg-pink-100 text-pink-700", tile: "bg-pink-100 text-pink-600" },
-  { badge: "bg-yellow-100 text-yellow-700", tile: "bg-yellow-100 text-yellow-600" },
-  { badge: "bg-green-100 text-green-700", tile: "bg-green-100 text-green-600" },
-];
+export const COLOR_OPTIONS = {
+  green: { badge: "bg-green-100 text-green-700", tile: "bg-green-100 text-green-600", swatch: "bg-green-600" },
+  blue: { badge: "bg-blue-100 text-blue-700", tile: "bg-blue-100 text-blue-600", swatch: "bg-blue-600" },
+  purple: { badge: "bg-purple-100 text-purple-700", tile: "bg-purple-100 text-purple-600", swatch: "bg-purple-600" },
+  pink: { badge: "bg-pink-100 text-pink-700", tile: "bg-pink-100 text-pink-600", swatch: "bg-pink-600" },
+  red: { badge: "bg-red-100 text-red-700", tile: "bg-red-100 text-red-600", swatch: "bg-red-600" },
+  orange: { badge: "bg-orange-100 text-orange-700", tile: "bg-orange-100 text-orange-600", swatch: "bg-orange-600" },
+  yellow: { badge: "bg-yellow-100 text-yellow-700", tile: "bg-yellow-100 text-yellow-600", swatch: "bg-yellow-600" },
+} satisfies Record<string, Palette & { swatch: string }>;
+
+export type CategoryColor = keyof typeof COLOR_OPTIONS;
+const colorKeys = Object.keys(COLOR_OPTIONS) as CategoryColor[];
+
+export const ICON_OPTIONS = {
+  briefcase: Briefcase,
+  car: Car,
+  "heart-pulse": HeartPulse,
+  "piggy-bank": PiggyBank,
+  "shopping-cart": ShoppingCart,
+  ticket: Ticket,
+  gift: Gift,
+  utensils: Utensils,
+  "paw-print": PawPrint,
+  house: House,
+  plane: Plane,
+  dumbbell: Dumbbell,
+  "book-open": BookOpen,
+  "shopping-bag": ShoppingBag,
+  wallet: Wallet,
+  "file-text": FileText,
+} satisfies Record<string, LucideIcon>;
+
+export type CategoryIconKey = keyof typeof ICON_OPTIONS;
 
 const icons: [string[], LucideIcon][] = [
   [["alimenta", "restaurante", "comida", "lanche", "jantar", "almoco", "ifood", "pizza", "delivery"], Utensils],
@@ -94,9 +122,17 @@ export function categoryIcon(name?: string | null): LucideIcon {
   return icons.find(([words]) => words.some((w) => text.includes(w)))?.[1] ?? Tag;
 }
 
-export function categoryStyle(name?: string | null): Palette & { Icon: LucideIcon } {
-  if (!name) return { ...palettes[5], Icon: Tag };
+type StyleSource = { name?: string | null; icon?: string | null; color?: string | null };
+
+// Ícone/cor escolhidos têm prioridade; sem escolha, derivam do nome.
+export function categoryStyle(category?: StyleSource | null): Palette & { Icon: LucideIcon } {
+  const name = category?.name;
+  const chosenIcon = category?.icon ? (ICON_OPTIONS as Record<string, LucideIcon>)[category.icon] : undefined;
+  const chosenColor = category?.color ? (COLOR_OPTIONS as Record<string, Palette>)[category.color] : undefined;
+
   let hash = 0;
-  for (const ch of normalize(name)) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
-  return { ...palettes[hash % palettes.length], Icon: categoryIcon(name) };
+  for (const ch of normalize(name ?? "")) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  const palette = chosenColor ?? COLOR_OPTIONS[name ? colorKeys[hash % colorKeys.length] : "green"];
+
+  return { badge: palette.badge, tile: palette.tile, Icon: chosenIcon ?? categoryIcon(name) };
 }
